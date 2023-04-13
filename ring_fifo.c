@@ -26,6 +26,11 @@
 static ring_fifo_t gs_ring_fifo;
 #endif  // STATIC_INSTANT_CREATE_ENABLE
 
+typedef enum bool_enum {
+  FALSE,
+  TRUE
+} bool_t;
+static bool_t gs_is_create = FALSE;
 // -----
 
 // private function declaration
@@ -37,14 +42,16 @@ static int ring_fifo_is_full(p_ring_fifo_t p_ring_fifo);
 
 
 /**
- * @brief 初始化环形队列
- * @return p_ring_fifo_t 
- * NULL: 初始化失败
- * 非 NULL: 初始化成功
- */
-p_ring_fifo_t ring_fifo_init(void) {
+ * @brief 环形队列写入数据
+ * 
+ * @return p_ring_fifo_t
+ * NULL: 创建失败
+ * 非NULL: 创建成功
+ */  
+p_ring_fifo_t ring_fifo_create(void) {
 #if STATIC_INSTANT_CREATE_ENABLE
   memset((unsigned char*)&gs_ring_fifo, 0, sizeof(ring_fifo_t));
+  gs_is_create = TRUE;
   return &gs_ring_fifo;
 #endif  // STATIC_INSTANT_CREATE_ENABLE
 
@@ -54,14 +61,37 @@ p_ring_fifo_t ring_fifo_init(void) {
     printf("malloc ring_fifo_t failed\n");
     return NULL;
   }
-
-  p_ring_fifo->r_op = 0;
-  p_ring_fifo->w_op = 0;
-
+  memset((unsigned char*)p_ring_fifo, 0, sizeof(ring_fifo_t));
+  gs_is_create = TRUE;
   return p_ring_fifo;
 #endif  // DYNAMIC_INSTANT_CREATE_ENABLE
 
+  gs_is_create = FALSE;
   return NULL;
+}
+
+/**
+ * @brief 销毁环形队列
+ * @param [in] p_ring_fifo [环形队列首地址] 
+ * @return int 
+ * -1: 环形队列未初始化
+ * 0: 成功
+ */
+int ring_fifo_destroy(p_ring_fifo_t p_ring_fifo) {
+  if ((p_ring_fifo == NULL) && 
+    (gs_is_create == TRUE)) {
+    return -1;
+  }
+
+#if STATIC_INSTANT_CREATE_ENABLE
+  memset((unsigned char*)&gs_ring_fifo, 0, sizeof(ring_fifo_t));
+#endif  // STATIC_INSTANT_CREATE_ENABLE
+
+#if DYNAMIC_INSTANT_CREATE_ENABLE
+  free(p_ring_fifo);
+#endif  // DYNAMIC_INSTANT_CREATE_ENABLE
+
+  return 0;
 }
 
 /**
@@ -90,41 +120,19 @@ int ring_fifo_is_empty(p_ring_fifo_t p_ring_fifo) {
  * 
  * @param p_ring_fifo 
  * @return int 
- * -1: 环形队列未初始化
+ * -1: 环形队列未创建
  * 0: 环形队列未满
  * 1: 环形队列已满
  */
 int ring_fifo_is_full(p_ring_fifo_t p_ring_fifo) {
-  if (p_ring_fifo == NULL) {
+  if ((p_ring_fifo == NULL) && 
+    (gs_is_create == TRUE)) {
     return -1;
   }
 
   if ((p_ring_fifo->w_op - p_ring_fifo->r_op) == RING_FIFO_SIZE) {
     return 1;
   }
-
-  return 0;
-}
-
-/**
- * @brief 环形队列去初始化
- * @param [in] p_ring_fifo [环形队列首地址] 
- * @return int 
- * -1: 环形队列未初始化
- * 0: 环形队列去初始化成功
- */
-int ring_fifo_deinit(p_ring_fifo_t p_ring_fifo) {
-  if (p_ring_fifo == NULL) {
-    return -1;
-  }
-
-#if STATIC_INSTANT_CREATE_ENABLE
-  memset((unsigned char*)&gs_ring_fifo, 0, sizeof(ring_fifo_t));
-#endif  // STATIC_INSTANT_CREATE_ENABLE
-
-#if DYNAMIC_INSTANT_CREATE_ENABLE
-  free(p_ring_fifo);
-#endif  // DYNAMIC_INSTANT_CREATE_ENABLE
 
   return 0;
 }
@@ -139,7 +147,8 @@ int ring_fifo_deinit(p_ring_fifo_t p_ring_fifo) {
  * 0: 写入数据成功
  */
 int  ring_fifo_write(p_ring_fifo_t p_ring_fifo, data_t data) {
-  if (p_ring_fifo == NULL) {
+  if ((p_ring_fifo == NULL) && 
+    (gs_is_create == TRUE)) {
     printf("ring_fifo is not init\n");
     return -1;
   }
@@ -150,7 +159,7 @@ int  ring_fifo_write(p_ring_fifo_t p_ring_fifo, data_t data) {
   }
 
   data_t* p_data_buf_index =  (data_t*)p_ring_fifo->data_buf;
-  p_data_buf_index += (p_ring_fifo->r_op % RING_FIFO_SIZE);
+  p_data_buf_index += (p_ring_fifo->w_op % RING_FIFO_SIZE);
   *p_data_buf_index = data;
   p_ring_fifo->w_op++;
 
@@ -167,7 +176,8 @@ int  ring_fifo_write(p_ring_fifo_t p_ring_fifo, data_t data) {
  * 0: 读取数据成功
  */
 int ring_fifo_read(p_ring_fifo_t p_ring_fifo, data_t* p_data) {
-  if (p_ring_fifo == NULL) {
+  if ((p_ring_fifo == NULL) && 
+    (gs_is_create == TRUE)) {
     printf("ring_fifo is not init\n");
     return -1;
   }
