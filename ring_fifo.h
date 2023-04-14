@@ -36,10 +36,8 @@ typedef struct ring_fifo_struct {
     data_t data_buf[RING_FIFO_SIZE];    /* 缓冲区 */
     int w_op;                   /* 写操作 */
     int r_op;                   /* 读操作 */
-} ring_fifo_t;
+} ring_fifo_t, *p_ring_fifo_t;
 #pragma pack() // 恢复默认对齐
-
-typedef struct ring_fifo_struct *p_ring_fifo_t;
 
 // public function declare
 /**
